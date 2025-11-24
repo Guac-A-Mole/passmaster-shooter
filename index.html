@@ -37,7 +37,6 @@
       );
     }
 
-    /* HUD */
     #hud {
       position: absolute;
       top: 8px;
@@ -52,7 +51,6 @@
       font-weight: bold;
     }
 
-    /* Legend */
     #legend {
       position: absolute;
       top: 8px;
@@ -63,6 +61,7 @@
       font-size: 11px;
       border: 1px solid #1f4068;
       box-shadow: 0 0 10px rgba(0,0,0,0.6);
+      max-width: 210px;
     }
 
     #legend-title {
@@ -85,7 +84,7 @@
       border-radius: 50%;
     }
     .legend-threat { background: #ff4b4b; }
-    .legend-safe   { background: #3ad16b; }
+    .legend-safe   { background: #00c853; }
 
     #message {
       position: absolute;
@@ -173,10 +172,10 @@
     <div id="legend">
       <div id="legend-title">Threat Hunter</div>
       <div class="legend-row">
-        <span class="legend-dot legend-threat"></span> Shoot these (threats)
+        <span class="legend-dot legend-threat"></span> Shoot these (THREATS)
       </div>
       <div class="legend-row">
-        <span class="legend-dot legend-safe"></span> Don’t shoot (safe)
+        <span class="legend-dot legend-safe"></span> Do NOT shoot (SAFE)
       </div>
     </div>
 
@@ -188,12 +187,12 @@
       <h1>Threat Hunter</h1>
       <p>
         You are a Security Analyst.  
-        Shoot <strong>only the cyber threats</strong> (malware, unsafe downloads,
-        fake pop-ups, sketchy Wi-Fi) and <strong>avoid hitting safe items</strong>.
+        Shoot <strong>only the cyber threats</strong> (red items).  
+        Let safe behavior and good security practices pass.
       </p>
       <p style="font-size: 13px; margin-top: 6px;">
         +10 points for stopping a threat.  
-        Losing health for letting a threat through or shooting something safe.
+        Lose 1 health for missing a threat or shooting something safe.
       </p>
       <button onclick="startGame()">Start Game</button>
     </div>
@@ -211,8 +210,7 @@
     const startOverlay = document.getElementById('startOverlay');
     const container = document.getElementById('gameContainer');
 
-    // GAME STATE
-    let entities = [];   // falling items
+    let entities = [];
     let score = 0;
     let health = 3;
     let isGameOver = false;
@@ -220,53 +218,173 @@
     let spawnInterval = 1500;
     let lastTime = 0;
 
-    // 🔴 / 🟢 SCENARIOS
-    // NOTE: put your images in /assets and name them to match imgSrc
+    /**
+     * type: 'image' | 'text'
+     * isThreat: true (shoot) | false (do not shoot)
+     * imgSrc: for image cards
+     * text: full prompt for text cards
+     */
     const CARDS = [
-  {
-    id: 'file_explorer',
-    label: 'Suspicious files in downloads',
-    imgSrc: 'assets/File Explorer.jpg',
-    isThreat: true
-  },
-  {
-    id: 'permission_app',
-    label: 'App asks for odd permissions',
-    imgSrc: 'assets/Permission app.jpg',
-    isThreat: true
-  },
-  {
-    id: 'remote_access',
-    label: 'Remote access request',
-    imgSrc: 'assets/Remote Access.jpg',
-    isThreat: true
-  },
-  {
-    id: 'warning_ssl',
-    label: 'Connection not private',
-    imgSrc: 'assets/warning.jpg',
-    isThreat: true
-  },
-  {
-    id: 'wifi_public',
-    label: 'Free public Wi-Fi',
-    imgSrc: 'assets/wifi.jpg',
-    isThreat: true
-  },
-  {
-    id: 'gnome_weird',
-    label: 'Unknown / suspicious link',
-    imgSrc: 'assets/profile.jpg',
-    isThreat: true
-  }
-];
+      // ------- IMAGE THREATS -------
+      {
+        id: 'file_explorer',
+        type: 'image',
+        label: 'Suspicious files in downloads',
+        imgSrc: 'assets/File Explorer.jpg',
+        isThreat: true,
+        onShoot: 'Nice catch! Files like “Important_Invoice.pdf.exe” are usually malware.',
+        onMiss: 'You ignored a malicious attachment. It could infect the system.'
+      },
+      {
+        id: 'permission_app',
+        type: 'image',
+        label: 'Odd app permissions',
+        imgSrc: 'assets/Permission app.jpg',
+        isThreat: true,
+        onShoot: 'Correct. A calculator shouldn’t need access to your contacts.',
+        onMiss: 'Granting excessive permissions can leak private data.'
+      },
+      {
+        id: 'remote_access',
+        type: 'image',
+        label: 'Remote access request',
+        imgSrc: 'assets/Remote Access.jpg',
+        isThreat: true,
+        onShoot: 'Good job. Unwanted remote access can give attackers control.',
+        onMiss: 'You allowed remote access — an attacker could now control this PC.'
+      },
+      {
+        id: 'warning_ssl',
+        type: 'image',
+        label: 'Connection not private',
+        imgSrc: 'assets/warning.jpg',
+        isThreat: true,
+        onShoot: 'Correct. Certificate warnings can mean someone is intercepting traffic.',
+        onMiss: 'Ignoring this warning can expose passwords and credit cards.'
+      },
+      {
+        id: 'wifi_public',
+        type: 'image',
+        label: 'Random public Wi-Fi',
+        imgSrc: 'assets/wifi.jpg',
+        isThreat: true,
+        onShoot: 'Nice. Public Wi-Fi can let attackers snoop on your traffic.',
+        onMiss: 'Connecting to random open Wi-Fi is risky without a VPN.'
+      },
+      {
+        id: 'gnome_weird',
+        type: 'image',
+        label: 'Strange meme link',
+        imgSrc: 'assets/profile.jpg',
+        isThreat: true,
+        onShoot: 'Even funny memes from unknown links can bundle malware.',
+        onMiss: 'You trusted a weird link that could have delivered malware.'
+      },
 
+      // ------- IMAGE SAFES -------
+      {
+        id: 'https_safe',
+        type: 'image',
+        label: 'Secure HTTPS site',
+        imgSrc: 'assets/https.jpg',
+        isThreat: false,
+        onShoot: 'This was safe — HTTPS with the lock is usually a good sign.',
+        onMiss: 'Good job. Using HTTPS helps protect data in transit.'
+      },
+      {
+        id: 'weather_location',
+        type: 'image',
+        label: 'Weather app location request',
+        imgSrc: 'assets/iOS asking for location.png',
+        isThreat: false,
+        onShoot: 'This is normally safe — a weather app needs your location.',
+        onMiss: 'Correct to allow. Some apps legitimately use your location.'
+      },
+      {
+        id: 'location_usage',
+        type: 'image',
+        label: 'App explains location use',
+        imgSrc: 'assets/safe ios.jpg',
+        isThreat: false,
+        onShoot: 'This prompt is transparent about location use and is usually safe.',
+        onMiss: 'Letting this continue is fine if you trust the app.'
+      },
+      {
+        id: 'windows_update',
+        type: 'image',
+        label: 'Official Windows Update',
+        imgSrc: 'assets/WINDOWS UPDATE.png',
+        isThreat: false,
+        onShoot: 'These official updates fix security issues—you shouldn’t block them.',
+        onMiss: 'Keeping your system updated is a key security best practice.'
+      },
 
-    // Preload images
+      // ------- TEXT THREATS -------
+      {
+        id: 'usb_parking_lot',
+        type: 'text',
+        label: 'Mysterious USB',
+        text: 'You find a USB drive in the parking lot labeled “Salary_2025”.\nDo you plug it into your work computer?',
+        isThreat: true,
+        onShoot: 'Correct. Plugging in unknown USB drives can install malware.',
+        onMiss: 'You ignored this threat and could have infected the network.'
+      },
+      {
+        id: 'sms_phishing',
+        type: 'text',
+        label: 'Text message link',
+        text: 'You get a text claiming your package is held.\nIt includes a shortened link to “verify” your card.',
+        isThreat: true,
+        onShoot: 'Nice. Phishing texts often use urgent language and weird links.',
+        onMiss: 'Clicking that link could steal your payment information.'
+      },
+      {
+        id: 'mfa_bombing',
+        type: 'text',
+        label: 'MFA prompt bombing',
+        text: 'Your phone starts receiving nonstop MFA push notifications\nfor a login you did not start.',
+        isThreat: true,
+        onShoot: 'Correct. Attackers may spam MFA to trick you into approving.',
+        onMiss: 'Approving random MFA requests can give attackers account access.'
+      },
+
+      // ------- TEXT SAFES -------
+      {
+        id: 'password_manager',
+        type: 'text',
+        label: 'Password manager',
+        text: 'You install a reputable password manager\nfrom the official app store to store unique passwords.',
+        isThreat: false,
+        onShoot: 'Password managers are recommended — shooting this was a mistake.',
+        onMiss: 'Good choice. Strong, unique passwords improve security.'
+      },
+      {
+        id: 'auto_updates',
+        type: 'text',
+        label: 'Automatic updates',
+        text: 'You enable automatic security updates\nfor your laptop’s operating system.',
+        isThreat: false,
+        onShoot: 'Keeping updates on is safe — don’t block legitimate security patches.',
+        onMiss: 'Nice. Automatic updates help patch vulnerabilities quickly.'
+      },
+      {
+        id: 'report_phishing',
+        type: 'text',
+        label: 'Report phishing',
+        text: 'You receive a suspicious email\nand use the “Report phishing” button instead of clicking.',
+        isThreat: false,
+        onShoot: 'Reporting suspicious emails is good practice — this was safe.',
+        onMiss: 'Correct. Reporting gives security teams a chance to block the attack.'
+      }
+    ];
+
+    // Preload images for image cards
     CARDS.forEach(card => {
-      const img = new Image();
-      img.src = card.imgSrc;
-      card.img = img;
+      if (card.type === 'image' && card.imgSrc) {
+        const img = new Image();
+        img.src = card.imgSrc;
+        card.img = img;
+      }
     });
 
     function resetGame() {
@@ -289,8 +407,8 @@
 
     function spawnEntity() {
       const card = CARDS[Math.floor(Math.random() * CARDS.length)];
-      const width = 150;
-      const height = 110;
+      const width = 170;
+      const height = 120;
       const x = Math.random() * (canvas.width - width - 80) + 40 + width / 2;
       const speed = 0.5 + Math.random() * 0.45;
 
@@ -309,24 +427,25 @@
     function update(delta) {
       if (isGameOver) return;
 
-      // spawn new item
       if (lastTime - lastSpawnTime > spawnInterval) {
         spawnEntity();
         lastSpawnTime = lastTime;
         if (spawnInterval > 750) {
-          spawnInterval -= 12; // ramp difficulty
+          spawnInterval -= 12;
         }
       }
 
-      // move items
       for (let i = entities.length - 1; i >= 0; i--) {
         const e = entities[i];
         e.y += e.speed * (delta / 16);
 
-        if (e.y > canvas.height - 40) { // reached bottom
-          if (e.card.isThreat) {
+        if (e.y > canvas.height - 40) {
+          const card = e.card;
+
+          if (card.isThreat) {
+            // missed a threat → lose health
             health--;
-            showFact('Threat missed: ' + e.card.onMiss, '#ff6666');
+            showFact(card.onMiss || 'You let a threat through!', '#ff6666');
             if (health <= 0) {
               health = 0;
               entities.splice(i, 1);
@@ -334,8 +453,11 @@
               gameOver();
               return;
             }
+          } else {
+            // allowed a safe behavior
+            showFact(card.onMiss || 'Good. This was safe to allow.', '#66ff66');
           }
-          // safe item at bottom = no penalty
+
           entities.splice(i, 1);
         }
       }
@@ -346,46 +468,53 @@
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // side walls
       ctx.fillStyle = '#111423';
       ctx.fillRect(0, 0, 40, canvas.height);
       ctx.fillRect(canvas.width - 40, 0, 40, canvas.height);
 
-      // floor
       const grd = ctx.createLinearGradient(0, canvas.height * 0.6, 0, canvas.height);
       grd.addColorStop(0, '#151522');
       grd.addColorStop(1, '#050509');
       ctx.fillStyle = grd;
       ctx.fillRect(0, canvas.height * 0.6, canvas.width, canvas.height * 0.4);
 
-      // items
       entities.forEach(e => {
         const { card } = e;
         const x = e.x - e.w / 2;
         const y = e.y - e.h / 2;
 
-        // background card
-        ctx.fillStyle = 'rgba(5, 10, 25, 0.9)';
+        // Card background
+        ctx.fillStyle = 'rgba(5, 10, 25, 0.95)';
         ctx.fillRect(x, y, e.w, e.h);
 
-        // image
-        if (card.img && card.img.complete) {
-          ctx.drawImage(card.img, x + 5, y + 5, e.w - 10, e.h - 30);
-        }
-
-        // border (same color for all so it doesn’t give away threat vs safe)
-        ctx.strokeStyle = '#00e5ff';
-        ctx.lineWidth = 1;
+        // Border color: red threat, green safe
+        ctx.strokeStyle = card.isThreat ? '#ff4b4b' : '#00c853';
+        ctx.lineWidth = 2;
         ctx.strokeRect(x, y, e.w, e.h);
 
-        // label
+        if (card.type === 'image') {
+          if (card.img && card.img.complete) {
+            ctx.drawImage(card.img, x + 5, y + 5, e.w - 10, e.h - 35);
+          }
+        } else if (card.type === 'text') {
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '11px Arial';
+          ctx.textAlign = 'left';
+          const lines = card.text.split('\n');
+          let ty = y + 18;
+          lines.forEach(line => {
+            ctx.fillText(line, x + 8, ty);
+            ty += 13;
+          });
+        }
+
+        // Label at bottom
         ctx.fillStyle = '#ffffff';
         ctx.font = '11px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(card.label, e.x, y + e.h - 8);
+        ctx.fillText(card.label, e.x, y + e.h - 6);
       });
 
-      // bottom HUD bar
       ctx.fillStyle = '#2b0710';
       ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
       ctx.fillStyle = '#ff4b4b';
@@ -419,17 +548,17 @@
       clearTimeout(messageEl._timeout);
       messageEl._timeout = setTimeout(() => {
         messageEl.textContent = '';
-      }, 2700);
+      }, 3200);
     }
 
     function gameOver() {
       isGameOver = true;
-      showFact('GAME OVER – Your analysis failed. 💀', '#ff4444');
+      showFact('GAME OVER – Your defenses failed. 💀', '#ff4444');
       setTimeout(() => {
         startOverlay.style.display = 'flex';
         startOverlay.querySelector('p').innerHTML =
           'Final Score: ' + score +
-          '<br>Refresh or click <strong>Start Game</strong> to hunt threats again.';
+          '<br>Refresh or click <strong>Start Game</strong> to play again.';
       }, 1200);
     }
 
@@ -441,7 +570,6 @@
       };
     }
 
-    // click to shoot
     canvas.addEventListener('click', (evt) => {
       if (isGameOver) return;
       const pos = getMousePos(evt);
@@ -454,13 +582,16 @@
         const bottom = e.y + e.h / 2;
 
         if (pos.x >= left && pos.x <= right && pos.y >= top && pos.y <= bottom) {
-          // hit
-          if (e.card.isThreat) {
+          const card = e.card;
+
+          if (card.isThreat) {
+            // correct: shot a threat
             score += 10;
-            showFact(e.card.onShoot, '#66ff66');
+            showFact(card.onShoot || 'Threat neutralized.', '#66ff66');
           } else {
+            // wrong: shot a safe item
             health--;
-            showFact(e.card.onShoot, '#ff9999');
+            showFact(card.onShoot || 'You blocked something safe.', '#ff6666');
             if (health <= 0) {
               health = 0;
               entities.splice(i, 1);
@@ -469,6 +600,7 @@
               return;
             }
           }
+
           entities.splice(i, 1);
           updateHUD();
           return;
@@ -476,7 +608,6 @@
       }
     });
 
-    // move crosshair with mouse
     container.addEventListener('mousemove', (evt) => {
       const r = container.getBoundingClientRect();
       const x = evt.clientX - r.left;

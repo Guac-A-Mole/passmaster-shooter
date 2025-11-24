@@ -172,10 +172,10 @@
     <div id="legend">
       <div id="legend-title">Threat Hunter</div>
       <div class="legend-row">
-        <span class="legend-dot legend-threat"></span> Shoot these (THREATS)
+        <span class="legend-dot legend-threat"></span> Shoot cyber threats
       </div>
       <div class="legend-row">
-        <span class="legend-dot legend-safe"></span> Do NOT shoot (SAFE)
+        <span class="legend-dot legend-safe"></span> Don’t shoot safe activity
       </div>
     </div>
 
@@ -187,8 +187,8 @@
       <h1>Threat Hunter</h1>
       <p>
         You are a Security Analyst.  
-        Shoot <strong>only the cyber threats</strong> (red items).  
-        Let safe behavior and good security practices pass.
+        Decide which items are <strong>threats</strong> and shoot only those.  
+        Safe behavior should be left alone.
       </p>
       <p style="font-size: 13px; margin-top: 6px;">
         +10 points for stopping a threat.  
@@ -218,10 +218,6 @@
     let spawnInterval = 1500;
     let lastTime = 0;
 
-    /**
-     * type: 'image' | 'text'
-     * isThreat: true (shoot) | false (do not shoot)
-     */
     const CARDS = [
       // ------- IMAGE THREATS -------
       {
@@ -296,7 +292,7 @@
         imgSrc: 'assets/iOS asking for location.png',
         isThreat: false,
         onShoot: 'This is normally safe — a weather app needs your location.',
-        onMiss: 'Correct to allow. Some apps legitimately use your location.'
+        onMiss: 'Some apps legitimately use your location; this one is reasonable.'
       },
       {
         id: 'location_usage',
@@ -425,7 +421,8 @@
     function update(delta) {
       if (isGameOver) return;
 
-      if (lastTime - lastSpawnTime > spawnInterval) {
+      // 🔹 Only spawn if there are fewer than 3 entities on screen
+      if (lastTime - lastSpawnTime > spawnInterval && entities.length < 3) {
         spawnEntity();
         lastSpawnTime = lastTime;
         if (spawnInterval > 750) {
@@ -479,10 +476,12 @@
         const x = e.x - e.w / 2;
         const y = e.y - e.h / 2;
 
+        // Card background
         ctx.fillStyle = 'rgba(5, 10, 25, 0.95)';
         ctx.fillRect(x, y, e.w, e.h);
 
-        ctx.strokeStyle = card.isThreat ? '#ff4b4b' : '#00c853';
+        // 🔹 Neutral border (no hint if safe or threat)
+        ctx.strokeStyle = '#00e5ff';
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, e.w, e.h);
 

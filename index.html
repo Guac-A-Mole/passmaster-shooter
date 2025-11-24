@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>PassMaster - Threat Shooter</title>
+  <title>Threat Hunter - Cyber Defense Game</title>
   <style>
     body {
       margin: 0;
-      background: #000;
+      background: radial-gradient(circle at top, #1b3358 0%, #050810 55%, #020308 100%);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -19,8 +19,10 @@
       position: relative;
       width: 800px;
       height: 500px;
-      border: 3px solid #555;
-      background: radial-gradient(circle at center, #222 0%, #050505 70%);
+      border-radius: 10px;
+      border: 2px solid #00e5ff;
+      box-shadow: 0 0 25px rgba(0, 229, 255, 0.4);
+      background: radial-gradient(circle at center, #151521 0%, #050509 70%);
       overflow: hidden;
     }
 
@@ -28,29 +30,72 @@
       display: block;
       background: repeating-linear-gradient(
         to bottom,
-        #050505,
-        #050505 10px,
-        #080808 10px,
-        #080808 20px
+        #050509,
+        #050509 10px,
+        #090914 10px,
+        #090914 20px
       );
     }
 
+    /* HUD */
     #hud {
       position: absolute;
       top: 8px;
       left: 8px;
       font-size: 14px;
       text-shadow: 0 0 4px #000;
+      line-height: 1.4;
     }
+
+    #hud span.label {
+      color: #9bd1ff;
+      font-weight: bold;
+    }
+
+    /* Legend */
+    #legend {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(2, 6, 18, 0.85);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 11px;
+      border: 1px solid #1f4068;
+      box-shadow: 0 0 10px rgba(0,0,0,0.6);
+    }
+
+    #legend-title {
+      font-weight: bold;
+      margin-bottom: 4px;
+      color: #9bd1ff;
+      text-align: center;
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 2px 0;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .legend-threat { background: #ff4b4b; }
+    .legend-safe   { background: #3ad16b; }
 
     #message {
       position: absolute;
       bottom: 8px;
       left: 50%;
       transform: translateX(-50%);
-      font-size: 16px;
+      font-size: 15px;
       text-shadow: 0 0 6px #000;
       text-align: center;
+      max-width: 90%;
     }
 
     #crosshair {
@@ -78,7 +123,7 @@
     #startOverlay {
       position: absolute;
       inset: 0;
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.85);
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -89,8 +134,13 @@
 
     #startOverlay h1 {
       margin-bottom: 10px;
-      color: #ff3333;
+      color: #ff4b4b;
       text-shadow: 0 0 8px #f00;
+      font-size: 28px;
+    }
+
+    #startOverlay p {
+      max-width: 420px;
     }
 
     #startOverlay button {
@@ -113,22 +163,37 @@
 <body>
   <div id="gameContainer">
     <canvas id="gameCanvas" width="800" height="500"></canvas>
+
     <div id="hud">
-      <div>Score: <span id="score">0</span></div>
-      <div>Health: <span id="health">3</span></div>
-      <div>Threats Left: <span id="threats">0</span></div>
+      <div><span class="label">Score:</span> <span id="score">0</span></div>
+      <div><span class="label">Health:</span> <span id="health">3</span></div>
+      <div><span class="label">Items on screen:</span> <span id="threats">0</span></div>
     </div>
+
+    <div id="legend">
+      <div id="legend-title">Threat Hunter</div>
+      <div class="legend-row">
+        <span class="legend-dot legend-threat"></span> Shoot these (threats)
+      </div>
+      <div class="legend-row">
+        <span class="legend-dot legend-safe"></span> Don’t shoot (safe)
+      </div>
+    </div>
+
     <div id="message"></div>
     <div id="crosshair"></div>
     <div id="centerDot"></div>
 
     <div id="startOverlay">
-      <h1>PassMaster: Threat Elimination</h1>
-      <p>Incoming cyber threats are approaching.<br>
-         Click on them to eliminate them before they reach you.</p>
-      <p style="font-size: 13px; max-width: 400px;">
-        Each target represents a bad security habit like weak passwords, reuse, or phishing.<br>
-        Shoot the threats. Protect your security.
+      <h1>Threat Hunter</h1>
+      <p>
+        You are a Security Analyst.  
+        Shoot <strong>only the cyber threats</strong> (malware, unsafe downloads,
+        fake pop-ups, sketchy Wi-Fi) and <strong>avoid hitting safe items</strong>.
+      </p>
+      <p style="font-size: 13px; margin-top: 6px;">
+        +10 points for stopping a threat.  
+        Losing health for letting a threat through or shooting something safe.
       </p>
       <button onclick="startGame()">Start Game</button>
     </div>
@@ -144,46 +209,92 @@
     const messageEl = document.getElementById('message');
     const crosshairEl = document.getElementById('crosshair');
     const startOverlay = document.getElementById('startOverlay');
-
     const container = document.getElementById('gameContainer');
 
-    let threats = [];
+    // GAME STATE
+    let entities = [];   // falling items
     let score = 0;
     let health = 3;
     let isGameOver = false;
     let lastSpawnTime = 0;
-    let spawnInterval = 1200; // ms
+    let spawnInterval = 1500;
     let lastTime = 0;
 
-    const threatTypes = [
+    // 🔴 / 🟢 SCENARIOS
+    // NOTE: put your images in /assets and name them to match imgSrc
+    const CARDS = [
       {
-        label: 'Weak PW',
-        color: '#ff3333',
-        fact: 'Weak passwords are easy to crack in seconds.'
+        id: 'fake_invoice',
+        label: 'Fake invoice attachment',
+        imgSrc: 'assets/file_explorer.jpg',  // Important_Invoice.pdf.exe
+        isThreat: true,
+        onShoot: 'Nice catch! Attachments ending in .pdf.exe are almost always malware.',
+        onMiss: 'You let a malicious attachment through. It could infect the system.'
       },
       {
-        label: 'Reuse',
-        color: '#ff8800',
-        fact: 'Reusing passwords spreads a single breach to all accounts.'
+        id: 'calc_contacts',
+        label: 'Calculator wants contacts',
+        imgSrc: 'assets/permission_app.jpg',
+        isThreat: true,
+        onShoot: 'Correct. Simple apps shouldn\'t need access to your contacts.',
+        onMiss: 'Granting extra permissions can leak your personal data.'
       },
       {
-        label: 'Phishing',
-        color: '#ffcc00',
-        fact: 'Phishing tricks you into giving away your login details.'
+        id: 'remote_access',
+        label: 'Remote access request',
+        imgSrc: 'assets/remote_access.jpg',
+        isThreat: true,
+        onShoot: 'Good job. Unwanted remote access can give attackers full control.',
+        onMiss: 'You allowed remote access — an attacker could now control this device.'
       },
       {
-        label: 'No MFA',
-        color: '#ff66ff',
-        fact: 'Without MFA, stolen passwords are enough to get in.'
+        id: 'https_warning',
+        label: 'Connection not private',
+        imgSrc: 'assets/warning.jpg',
+        isThreat: true,
+        onShoot: 'Correct. This warning can mean someone is trying to intercept your traffic.',
+        onMiss: 'Ignoring certificate warnings can expose passwords and credit cards.'
+      },
+      {
+        id: 'public_wifi',
+        label: 'Free airport Wi-Fi',
+        imgSrc: 'assets/wifi.jpg',
+        isThreat: true,
+        onShoot: 'Nice. Public Wi-Fi can let attackers snoop on unencrypted traffic.',
+        onMiss: 'Connecting to random open Wi-Fi is risky without a VPN.'
+      },
+      // SAFE ITEMS (don’t shoot)
+      {
+        id: 'gnome_meme',
+        label: 'Harmless meme',
+        imgSrc: 'assets/gnome.jpg',
+        isThreat: false,
+        onShoot: 'False positive! This was just a silly meme, not a threat.',
+        onMiss: 'Good choice. Not everything weird online is malware.'
+      },
+      {
+        id: 'secure_wifi',
+        label: 'Secure home Wi-Fi',
+        imgSrc: 'assets/wifi.jpg',
+        isThreat: false,
+        onShoot: 'False positive! This represents a secured home network.',
+        onMiss: 'Right call. Choosing secured Wi-Fi with a password is a best practice.'
       }
     ];
 
+    // Preload images
+    CARDS.forEach(card => {
+      const img = new Image();
+      img.src = card.imgSrc;
+      card.img = img;
+    });
+
     function resetGame() {
-      threats = [];
+      entities = [];
       score = 0;
       health = 3;
       isGameOver = false;
-      spawnInterval = 1200;
+      spawnInterval = 1500;
       lastSpawnTime = 0;
       lastTime = 0;
       messageEl.textContent = '';
@@ -196,50 +307,56 @@
       requestAnimationFrame(gameLoop);
     }
 
-    function spawnThreat() {
-      const type = threatTypes[Math.floor(Math.random() * threatTypes.length)];
-      const x = Math.random() * (canvas.width - 80) + 40;
-      const size = 60;
-      const speed = 0.5 + Math.random() * 0.4;
+    function spawnEntity() {
+      const card = CARDS[Math.floor(Math.random() * CARDS.length)];
+      const width = 150;
+      const height = 110;
+      const x = Math.random() * (canvas.width - width - 80) + 40 + width / 2;
+      const speed = 0.5 + Math.random() * 0.45;
 
-      threats.push({
+      entities.push({
         x,
-        y: -size,
-        size,
+        y: -height,
+        w: width,
+        h: height,
         speed,
-        label: type.label,
-        color: type.color,
-        fact: type.fact
+        card
       });
 
-      threatsEl.textContent = threats.length;
+      threatsEl.textContent = entities.length;
     }
 
     function update(delta) {
       if (isGameOver) return;
 
+      // spawn new item
       if (lastTime - lastSpawnTime > spawnInterval) {
-        spawnThreat();
+        spawnEntity();
         lastSpawnTime = lastTime;
-        if (spawnInterval > 500) {
-          spawnInterval -= 10;
+        if (spawnInterval > 750) {
+          spawnInterval -= 12; // ramp difficulty
         }
       }
 
-      for (let i = threats.length - 1; i >= 0; i--) {
-        const t = threats[i];
-        t.y += t.speed * (delta / 16);
+      // move items
+      for (let i = entities.length - 1; i >= 0; i--) {
+        const e = entities[i];
+        e.y += e.speed * (delta / 16);
 
-        if (t.y > canvas.height - 40) {
-          health--;
-          showFact('Threat hit you: ' + t.fact, '#ff5555');
-
-          threats.splice(i, 1);
-          if (health <= 0) {
-            health = 0;
-            gameOver();
-            break;
+        if (e.y > canvas.height - 40) { // reached bottom
+          if (e.card.isThreat) {
+            health--;
+            showFact('Threat missed: ' + e.card.onMiss, '#ff6666');
+            if (health <= 0) {
+              health = 0;
+              entities.splice(i, 1);
+              updateHUD();
+              gameOver();
+              return;
+            }
           }
+          // safe item at bottom = no penalty
+          entities.splice(i, 1);
         }
       }
 
@@ -249,38 +366,52 @@
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      ctx.fillStyle = '#111';
+      // side walls
+      ctx.fillStyle = '#111423';
       ctx.fillRect(0, 0, 40, canvas.height);
       ctx.fillRect(canvas.width - 40, 0, 40, canvas.height);
 
+      // floor
       const grd = ctx.createLinearGradient(0, canvas.height * 0.6, 0, canvas.height);
-      grd.addColorStop(0, '#151515');
-      grd.addColorStop(1, '#050505');
+      grd.addColorStop(0, '#151522');
+      grd.addColorStop(1, '#050509');
       ctx.fillStyle = grd;
       ctx.fillRect(0, canvas.height * 0.6, canvas.width, canvas.height * 0.4);
 
-      threats.forEach(t => {
-        ctx.fillStyle = t.color;
-        ctx.fillRect(t.x - t.size / 2, t.y - t.size / 2, t.size, t.size);
+      // items
+      entities.forEach(e => {
+        const { card } = e;
+        const x = e.x - e.w / 2;
+        const y = e.y - e.h / 2;
 
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(t.x - t.size / 4, t.y - t.size / 4, 8, 8);
-        ctx.fillRect(t.x + t.size / 4 - 8, t.y - t.size / 4, 8, 8);
+        // background card
+        ctx.fillStyle = 'rgba(5, 10, 25, 0.9)';
+        ctx.fillRect(x, y, e.w, e.h);
 
-        ctx.fillRect(t.x - t.size / 4, t.y + t.size / 8, t.size / 2, 6);
+        // image
+        if (card.img && card.img.complete) {
+          ctx.drawImage(card.img, x + 5, y + 5, e.w - 10, e.h - 30);
+        }
 
+        // border (same color for all so it doesn’t give away threat vs safe)
+        ctx.strokeStyle = '#00e5ff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, e.w, e.h);
+
+        // label
         ctx.fillStyle = '#ffffff';
-        ctx.font = '12px Arial';
+        ctx.font = '11px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(t.label, t.x, t.y + t.size / 2 + 14);
+        ctx.fillText(card.label, e.x, y + e.h - 8);
       });
 
-      ctx.fillStyle = '#330000';
+      // bottom HUD bar
+      ctx.fillStyle = '#2b0710';
       ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
-      ctx.fillStyle = '#ff3333';
+      ctx.fillStyle = '#ff4b4b';
       ctx.font = 'bold 18px Arial';
       ctx.textAlign = 'left';
-      ctx.fillText('PASSMASTER', 10, canvas.height - 14);
+      ctx.fillText('THREAT HUNTER', 10, canvas.height - 14);
     }
 
     function gameLoop(timestamp) {
@@ -299,7 +430,7 @@
     function updateHUD() {
       scoreEl.textContent = score;
       healthEl.textContent = health;
-      threatsEl.textContent = threats.length;
+      threatsEl.textContent = entities.length;
     }
 
     function showFact(text, color = '#66ff66') {
@@ -308,17 +439,17 @@
       clearTimeout(messageEl._timeout);
       messageEl._timeout = setTimeout(() => {
         messageEl.textContent = '';
-      }, 2500);
+      }, 2700);
     }
 
     function gameOver() {
       isGameOver = true;
-      showFact('GAME OVER – Your defenses failed. 💀', '#ff4444');
+      showFact('GAME OVER – Your analysis failed. 💀', '#ff4444');
       setTimeout(() => {
         startOverlay.style.display = 'flex';
         startOverlay.querySelector('p').innerHTML =
           'Final Score: ' + score +
-          '<br>Refresh or click Start Game to try again.';
+          '<br>Refresh or click <strong>Start Game</strong> to hunt threats again.';
       }, 1200);
     }
 
@@ -330,27 +461,42 @@
       };
     }
 
+    // click to shoot
     canvas.addEventListener('click', (evt) => {
       if (isGameOver) return;
       const pos = getMousePos(evt);
 
-      for (let i = threats.length - 1; i >= 0; i--) {
-        const t = threats[i];
-        const left = t.x - t.size / 2;
-        const right = t.x + t.size / 2;
-        const top = t.y - t.size / 2;
-        const bottom = t.y + t.size / 2;
+      for (let i = entities.length - 1; i >= 0; i--) {
+        const e = entities[i];
+        const left = e.x - e.w / 2;
+        const right = e.x + e.w / 2;
+        const top = e.y - e.h / 2;
+        const bottom = e.y + e.h / 2;
 
         if (pos.x >= left && pos.x <= right && pos.y >= top && pos.y <= bottom) {
-          score += 10;
-          showFact('Threat eliminated: ' + t.fact, '#66ff66');
-          threats.splice(i, 1);
+          // hit
+          if (e.card.isThreat) {
+            score += 10;
+            showFact(e.card.onShoot, '#66ff66');
+          } else {
+            health--;
+            showFact(e.card.onShoot, '#ff9999');
+            if (health <= 0) {
+              health = 0;
+              entities.splice(i, 1);
+              updateHUD();
+              gameOver();
+              return;
+            }
+          }
+          entities.splice(i, 1);
           updateHUD();
           return;
         }
       }
     });
 
+    // move crosshair with mouse
     container.addEventListener('mousemove', (evt) => {
       const r = container.getBoundingClientRect();
       const x = evt.clientX - r.left;

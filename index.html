@@ -221,8 +221,6 @@
     /**
      * type: 'image' | 'text'
      * isThreat: true (shoot) | false (do not shoot)
-     * imgSrc: for image cards
-     * text: full prompt for text cards
      */
     const CARDS = [
       // ------- IMAGE THREATS -------
@@ -378,7 +376,7 @@
       }
     ];
 
-    // Preload images for image cards
+    // Preload images
     CARDS.forEach(card => {
       if (card.type === 'image' && card.imgSrc) {
         const img = new Image();
@@ -443,7 +441,6 @@
           const card = e.card;
 
           if (card.isThreat) {
-            // missed a threat → lose health
             health--;
             showFact(card.onMiss || 'You let a threat through!', '#ff6666');
             if (health <= 0) {
@@ -454,7 +451,6 @@
               return;
             }
           } else {
-            // allowed a safe behavior
             showFact(card.onMiss || 'Good. This was safe to allow.', '#66ff66');
           }
 
@@ -483,11 +479,9 @@
         const x = e.x - e.w / 2;
         const y = e.y - e.h / 2;
 
-        // Card background
         ctx.fillStyle = 'rgba(5, 10, 25, 0.95)';
         ctx.fillRect(x, y, e.w, e.h);
 
-        // Border color: red threat, green safe
         ctx.strokeStyle = card.isThreat ? '#ff4b4b' : '#00c853';
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, e.w, e.h);
@@ -508,7 +502,6 @@
           });
         }
 
-        // Label at bottom
         ctx.fillStyle = '#ffffff';
         ctx.font = '11px Arial';
         ctx.textAlign = 'center';
@@ -585,11 +578,9 @@
           const card = e.card;
 
           if (card.isThreat) {
-            // correct: shot a threat
             score += 10;
             showFact(card.onShoot || 'Threat neutralized.', '#66ff66');
           } else {
-            // wrong: shot a safe item
             health--;
             showFact(card.onShoot || 'You blocked something safe.', '#ff6666');
             if (health <= 0) {

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PassMaster - Threat Shooter</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+      color: #fff;
+    }
+
+    #gameContainer {
+      position: relative;
+      width: 800px;
+      height: 500px;
+      border: 3px solid #555;
+      background: radial-gradient(circle at center, #222 0%, #050505 70%);
+      overflow: hidden;
+    }
+
+    #gameCanvas {
+      display: block;
+      background: repeating-linear-gradient(
+        to bottom,
+        #050505,
+        #050505 10px,
+        #080808 10px,
+        #080808 20px
+      );
+    }
+
+    #hud {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      font-size: 14px;
+      text-shadow: 0 0 4px #000;
+    }
+
+    #message {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 16px;
+      text-shadow: 0 0 6px #000;
+      text-align: center;
+    }
+
+    #crosshair {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid #ff0000;
+      pointer-events: none;
+      box-shadow: 0 0 8px #f00;
+    }
+
+    #centerDot {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: #ff0000;
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 4px #f00;
+    }
+
+    #startOverlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+    }
+
+    #startOverlay h1 {
+      margin-bottom: 10px;
+      color: #ff3333;
+      text-shadow: 0 0 8px #f00;
+    }
+
+    #startOverlay button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      background: #ff3333;
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 0 8px #f00;
+    }
+
+    #startOverlay button:hover {
+      background: #ff5555;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+    <div id="hud">
+      <div>Score: <span id="score">0</span></div>
+      <div>Health: <span id="health">3</span></div>
+      <div>Threats Left: <span id="threats">0</span></div>
+    </div>
+    <div id="message"></div>
+    <div id="crosshair"></div>
+    <div id="centerDot"></div>
+
+    <div id="startOverlay">
+      <h1>PassMaster: Threat Elimination</h1>
+      <p>Incoming cyber threats are approaching.<br>
+         Click on them to eliminate them before they reach you.</p>
+      <p style="font-size: 13px; max-width: 400px;">
+        Each target represents a bad security habit like weak passwords, reuse, or phishing.<br>
+        Shoot the threats. Protect your security.
+      </p>
+      <button onclick="startGame()">Start Game</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const scoreEl = document.getElementById('score');
+    const healthEl = document.getElementById('health');
+    const threatsEl = document.getElementById('threats');
+    const messageEl = document.getElementById('message');
+    const crosshairEl = document.getElementById('crosshair');
+    const startOverlay = document.getElementById('startOverlay');
+
+    const container = document.getElementById('gameContainer');
+
+    let threats = [];
+    let score = 0;
+    let health = 3;
+    let isGameOver = false;
+    let lastSpawnTime = 0;
+    let spawnInterval = 1200; // ms
+    let lastTime = 0;
+
+    const threatTypes = [
+      {
+        label: 'Weak PW',
+        color: '#ff3333',
+        fact: 'Weak passwords are easy to crack in seconds.'
+      },
+      {
+        label: 'Reuse',
+        color: '#ff8800',
+        fact: 'Reusing passwords spreads a single breach to all accounts.'
+      },
+      {
+        label: 'Phishing',
+        color: '#ffcc00',
+        fact: 'Phishing tricks you into giving away your login details.'
+      },
+      {
+        label: 'No MFA',
+        color: '#ff66ff',
+        fact: 'Without MFA, stolen passwords are enough to get in.'
+      }
+    ];
+
+    function resetGame() {
+      threats = [];
+      score = 0;
+      health = 3;
+      isGameOver = false;
+      spawnInterval = 1200;
+      lastSpawnTime = 0;
+      lastTime = 0;
+      messageEl.textContent = '';
+      updateHUD();
+    }
+
+    function startGame() {
+      startOverlay.style.display = 'none';
+      resetGame();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function spawnThreat() {
+      const type = threatTypes[Math.floor(Math.random() * threatTypes.length)];
+      const x = Math.random() * (canvas.width - 80) + 40;
+      const size = 60;
+      const speed = 0.5 + Math.random() * 0.4;
+
+      threats.push({
+        x,
+        y: -size,
+        size,
+        speed,
+        label: type.label,
+        color: type.color,
+        fact: type.fact
+      });
+
+      threatsEl.textContent = threats.length;
+    }
+
+    function update(delta) {
+      if (isGameOver) return;
+
+      if (lastTime - lastSpawnTime > spawnInterval) {
+        spawnThreat();
+        lastSpawnTime = lastTime;
+        if (spawnInterval > 500) {
+          spawnInterval -= 10;
+        }
+      }
+
+      for (let i = threats.length - 1; i >= 0; i--) {
+        const t = threats[i];
+        t.y += t.speed * (delta / 16);
+
+        if (t.y > canvas.height - 40) {
+          health--;
+          showFact('Threat hit you: ' + t.fact, '#ff5555');
+
+          threats.splice(i, 1);
+          if (health <= 0) {
+            health = 0;
+            gameOver();
+            break;
+          }
+        }
+      }
+
+      updateHUD();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, 40, canvas.height);
+      ctx.fillRect(canvas.width - 40, 0, 40, canvas.height);
+
+      const grd = ctx.createLinearGradient(0, canvas.height * 0.6, 0, canvas.height);
+      grd.addColorStop(0, '#151515');
+      grd.addColorStop(1, '#050505');
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, canvas.height * 0.6, canvas.width, canvas.height * 0.4);
+
+      threats.forEach(t => {
+        ctx.fillStyle = t.color;
+        ctx.fillRect(t.x - t.size / 2, t.y - t.size / 2, t.size, t.size);
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(t.x - t.size / 4, t.y - t.size / 4, 8, 8);
+        ctx.fillRect(t.x + t.size / 4 - 8, t.y - t.size / 4, 8, 8);
+
+        ctx.fillRect(t.x - t.size / 4, t.y + t.size / 8, t.size / 2, 6);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(t.label, t.x, t.y + t.size / 2 + 14);
+      });
+
+      ctx.fillStyle = '#330000';
+      ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+      ctx.fillStyle = '#ff3333';
+      ctx.font = 'bold 18px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText('PASSMASTER', 10, canvas.height - 14);
+    }
+
+    function gameLoop(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      const delta = timestamp - lastTime;
+      lastTime = timestamp;
+
+      update(delta);
+      draw();
+
+      if (!isGameOver) {
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+    function updateHUD() {
+      scoreEl.textContent = score;
+      healthEl.textContent = health;
+      threatsEl.textContent = threats.length;
+    }
+
+    function showFact(text, color = '#66ff66') {
+      messageEl.style.color = color;
+      messageEl.textContent = text;
+      clearTimeout(messageEl._timeout);
+      messageEl._timeout = setTimeout(() => {
+        messageEl.textContent = '';
+      }, 2500);
+    }
+
+    function gameOver() {
+      isGameOver = true;
+      showFact('GAME OVER – Your defenses failed. 💀', '#ff4444');
+      setTimeout(() => {
+        startOverlay.style.display = 'flex';
+        startOverlay.querySelector('p').innerHTML =
+          'Final Score: ' + score +
+          '<br>Refresh or click Start Game to try again.';
+      }, 1200);
+    }
+
+    function getMousePos(evt) {
+      const r = canvas.getBoundingClientRect();
+      return {
+        x: evt.clientX - r.left,
+        y: evt.clientY - r.top
+      };
+    }
+
+    canvas.addEventListener('click', (evt) => {
+      if (isGameOver) return;
+      const pos = getMousePos(evt);
+
+      for (let i = threats.length - 1; i >= 0; i--) {
+        const t = threats[i];
+        const left = t.x - t.size / 2;
+        const right = t.x + t.size / 2;
+        const top = t.y - t.size / 2;
+        const bottom = t.y + t.size / 2;
+
+        if (pos.x >= left && pos.x <= right && pos.y >= top && pos.y <= bottom) {
+          score += 10;
+          showFact('Threat eliminated: ' + t.fact, '#66ff66');
+          threats.splice(i, 1);
+          updateHUD();
+          return;
+        }
+      }
+    });
+
+    container.addEventListener('mousemove', (evt) => {
+      const r = container.getBoundingClientRect();
+      const x = evt.clientX - r.left;
+      const y = evt.clientY - r.top;
+
+      crosshairEl.style.left = (x - 10) + 'px';
+      crosshairEl.style.top = (y - 10) + 'px';
+    });
+  </script>
+</body>
+</html>

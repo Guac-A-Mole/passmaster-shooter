@@ -51,6 +51,27 @@
       font-weight: bold;
     }
 
+    #healthBarOuter {
+      position: absolute;
+      top: 8px;
+      left: 200px;
+      width: 200px;
+      height: 12px;
+      border-radius: 6px;
+      background: rgba(30, 30, 30, 0.9);
+      box-shadow: 0 0 6px #000;
+      overflow: hidden;
+      border: 1px solid #1f4068;
+    }
+
+    #healthBarInner {
+      height: 100%;
+      width: 100%;
+      border-radius: 6px;
+      background: linear-gradient(to right, #00c853, #aeea00);
+      transition: width 0.2s ease-out, background 0.2s ease-out;
+    }
+
     #legend {
       position: absolute;
       top: 8px;
@@ -169,6 +190,10 @@
       <div><span class="label">Items on screen:</span> <span id="threats">0</span></div>
     </div>
 
+    <div id="healthBarOuter">
+      <div id="healthBarInner"></div>
+    </div>
+
     <div id="legend">
       <div id="legend-title">Threat Hunter</div>
       <div class="legend-row">
@@ -186,12 +211,12 @@
     <div id="startOverlay">
       <h1>Threat Hunter</h1>
       <p>
-        You are a Security Analyst.  
-        Decide which items are <strong>threats</strong> and shoot only those.  
+        You are a Security Analyst.<br>
+        Decide which items are <strong>threats</strong> and shoot only those.<br>
         Safe behavior should be left alone.
       </p>
       <p style="font-size: 13px; margin-top: 6px;">
-        +10 points for stopping a threat.  
+        +10 points for stopping a threat.<br>
         Lose 1 health for missing a threat or shooting something safe.
       </p>
       <button onclick="startGame()">Start Game</button>
@@ -209,10 +234,13 @@
     const crosshairEl = document.getElementById('crosshair');
     const startOverlay = document.getElementById('startOverlay');
     const container = document.getElementById('gameContainer');
+    const healthBarInner = document.getElementById('healthBarInner');
 
     let entities = [];
+    let explosions = [];
     let score = 0;
     let health = 3;
+    const maxHealth = 3;
     let isGameOver = false;
     let lastSpawnTime = 0;
     let spawnInterval = 1500;
@@ -383,14 +411,16 @@
 
     function resetGame() {
       entities = [];
+      explosions = [];
       score = 0;
-      health = 3;
+      health = maxHealth;
       isGameOver = false;
       spawnInterval = 1500;
       lastSpawnTime = 0;
       lastTime = 0;
       messageEl.textContent = '';
       updateHUD();
+      updateHealthBar();
     }
 
     function startGame() {
@@ -421,15 +451,17 @@
     function update(delta) {
       if (isGameOver) return;
 
-      // 🔹 Only spawn if there are fewer than 3 entities on screen
-      if (lastTime - lastSpawnTime > spawnInterval && entities.length < 3) {
+      // HARD MAX OF 3 ITEMS ON SCREEN
+      if (entities.length < 3 && lastTime - lastSpawnTime > spawnInterval) {
         spawnEntity();
         lastSpawnTime = lastTime;
+
         if (spawnInterval > 750) {
           spawnInterval -= 12;
         }
       }
 
+      // Update entities (falling)
       for (let i = entities.length - 1; i >= 0; i--) {
         const e = entities[i];
         e.y += e.speed * (delta / 16);
@@ -440,6 +472,7 @@
           if (card.isThreat) {
             health--;
             showFact(card.onMiss || 'You let a threat through!', '#ff6666');
+            updateHealthBar();
             if (health <= 0) {
               health = 0;
               entities.splice(i, 1);
@@ -452,6 +485,16 @@
           }
 
           entities.splice(i, 1);
+        }
+      }
+
+      // Update explosions
+      for (let i = explosions.length - 1; i >= 0; i--) {
+        const ex = explosions[i];
+        ex.radius += ex.growth * (delta / 16);
+        ex.alpha -= ex.fade * (delta / 16);
+        if (ex.alpha <= 0) {
+          explosions.splice(i, 1);
         }
       }
 
@@ -471,19 +514,15 @@
       ctx.fillStyle = grd;
       ctx.fillRect(0, canvas.height * 0.6, canvas.width, canvas.height * 0.4);
 
+      // Draw entities (cards)
       entities.forEach(e => {
         const { card } = e;
         const x = e.x - e.w / 2;
         const y = e.y - e.h / 2;
 
-        // Card background
+        // Card background (no colored border = no hint)
         ctx.fillStyle = 'rgba(5, 10, 25, 0.95)';
         ctx.fillRect(x, y, e.w, e.h);
-
-        // 🔹 Neutral border (no hint if safe or threat)
-        ctx.strokeStyle = '#00e5ff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, y, e.w, e.h);
 
         if (card.type === 'image') {
           if (card.img && card.img.complete) {
@@ -505,6 +544,22 @@
         ctx.font = '11px Arial';
         ctx.textAlign = 'center';
         ctx.fillText(card.label, e.x, y + e.h - 6);
+      });
+
+      // Draw explosions
+      explosions.forEach(ex => {
+        const gradient = ctx.createRadialGradient(
+          ex.x, ex.y, 0,
+          ex.x, ex.y, ex.radius
+        );
+        gradient.addColorStop(0, `rgba(255,255,255,${ex.alpha})`);
+        gradient.addColorStop(0.3, `rgba(255,200,0,${ex.alpha})`);
+        gradient.addColorStop(0.7, `rgba(255,80,0,${ex.alpha * 0.8})`);
+        gradient.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(ex.x, ex.y, ex.radius, 0, Math.PI * 2);
+        ctx.fill();
       });
 
       ctx.fillStyle = '#2b0710';
@@ -532,6 +587,19 @@
       scoreEl.textContent = score;
       healthEl.textContent = health;
       threatsEl.textContent = entities.length;
+    }
+
+    function updateHealthBar() {
+      const ratio = Math.max(0, health) / maxHealth;
+      healthBarInner.style.width = (ratio * 100) + '%';
+
+      if (ratio > 0.66) {
+        healthBarInner.style.background = 'linear-gradient(to right, #00c853, #aeea00)';
+      } else if (ratio > 0.33) {
+        healthBarInner.style.background = 'linear-gradient(to right, #ffb300, #ff6f00)';
+      } else {
+        healthBarInner.style.background = 'linear-gradient(to right, #d50000, #ff1744)';
+      }
     }
 
     function showFact(text, color = '#66ff66') {
@@ -579,9 +647,19 @@
           if (card.isThreat) {
             score += 10;
             showFact(card.onShoot || 'Threat neutralized.', '#66ff66');
+            // add explosion
+            explosions.push({
+              x: e.x,
+              y: e.y,
+              radius: 5,
+              alpha: 1,
+              growth: 1.8,
+              fade: 0.06
+            });
           } else {
             health--;
             showFact(card.onShoot || 'You blocked something safe.', '#ff6666');
+            updateHealthBar();
             if (health <= 0) {
               health = 0;
               entities.splice(i, 1);

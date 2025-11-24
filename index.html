@@ -223,64 +223,44 @@
     // 🔴 / 🟢 SCENARIOS
     // NOTE: put your images in /assets and name them to match imgSrc
     const CARDS = [
-      {
-        id: 'fake_invoice',
-        label: 'Fake invoice attachment',
-        imgSrc: 'assets/file_explorer.jpg',  // Important_Invoice.pdf.exe
-        isThreat: true,
-        onShoot: 'Nice catch! Attachments ending in .pdf.exe are almost always malware.',
-        onMiss: 'You let a malicious attachment through. It could infect the system.'
-      },
-      {
-        id: 'calc_contacts',
-        label: 'Calculator wants contacts',
-        imgSrc: 'assets/permission_app.jpg',
-        isThreat: true,
-        onShoot: 'Correct. Simple apps shouldn\'t need access to your contacts.',
-        onMiss: 'Granting extra permissions can leak your personal data.'
-      },
-      {
-        id: 'remote_access',
-        label: 'Remote access request',
-        imgSrc: 'assets/remote_access.jpg',
-        isThreat: true,
-        onShoot: 'Good job. Unwanted remote access can give attackers full control.',
-        onMiss: 'You allowed remote access — an attacker could now control this device.'
-      },
-      {
-        id: 'https_warning',
-        label: 'Connection not private',
-        imgSrc: 'assets/warning.jpg',
-        isThreat: true,
-        onShoot: 'Correct. This warning can mean someone is trying to intercept your traffic.',
-        onMiss: 'Ignoring certificate warnings can expose passwords and credit cards.'
-      },
-      {
-        id: 'public_wifi',
-        label: 'Free airport Wi-Fi',
-        imgSrc: 'assets/wifi.jpg',
-        isThreat: true,
-        onShoot: 'Nice. Public Wi-Fi can let attackers snoop on unencrypted traffic.',
-        onMiss: 'Connecting to random open Wi-Fi is risky without a VPN.'
-      },
-      // SAFE ITEMS (don’t shoot)
-      {
-        id: 'gnome_meme',
-        label: 'Harmless meme',
-        imgSrc: 'assets/gnome.jpg',
-        isThreat: false,
-        onShoot: 'False positive! This was just a silly meme, not a threat.',
-        onMiss: 'Good choice. Not everything weird online is malware.'
-      },
-      {
-        id: 'secure_wifi',
-        label: 'Secure home Wi-Fi',
-        imgSrc: 'assets/wifi.jpg',
-        isThreat: false,
-        onShoot: 'False positive! This represents a secured home network.',
-        onMiss: 'Right call. Choosing secured Wi-Fi with a password is a best practice.'
-      }
-    ];
+  {
+    id: 'file_explorer',
+    label: 'Suspicious files in downloads',
+    imgSrc: 'assets/File Explorer.jpg',
+    isThreat: true
+  },
+  {
+    id: 'permission_app',
+    label: 'App asks for odd permissions',
+    imgSrc: 'assets/Permission app.jpg',
+    isThreat: true
+  },
+  {
+    id: 'remote_access',
+    label: 'Remote access request',
+    imgSrc: 'assets/Remote Access.jpg',
+    isThreat: true
+  },
+  {
+    id: 'warning_ssl',
+    label: 'Connection not private',
+    imgSrc: 'assets/warning.jpg',
+    isThreat: true
+  },
+  {
+    id: 'wifi_public',
+    label: 'Free public Wi-Fi',
+    imgSrc: 'assets/wifi.jpg',
+    isThreat: true
+  },
+  {
+    id: 'gnome_weird',
+    label: 'Unknown / suspicious link',
+    imgSrc: 'assets/profile.jpg',
+    isThreat: true
+  }
+];
+
 
     // Preload images
     CARDS.forEach(card => {
